@@ -254,6 +254,7 @@ public class ConsultaSolrSV extends HttpServlet {
                     }
                 }
             }
+            
             String documento = doc.toString();
             System.out.println("El documento " + i + " a escribir, con copyFields limpios es: " + documento);
             jsonDocsOrigen.put(doc);
@@ -417,115 +418,51 @@ public class ConsultaSolrSV extends HttpServlet {
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        //Capturando datos origen
-        String ip = "";
-        String puerto = "";
-        String origen = "";
-        String ids = "";
+        InputStream datos = request.getInputStream();
+        StringBuilder datosLeidos = new StringBuilder();
+        
+        try(BufferedReader rd = new BufferedReader(new InputStreamReader(datos))){
+            String linea;
+            if((linea = rd.readLine()) != null){
+                datosLeidos.append(linea);
+            }            
+        }       
+        
+        JSONObject datosFormulario = new JSONObject(datosLeidos);
+        
+        //Obteniendo datos origen
+        String ip = datosFormulario.getString("ip");
+        String puerto = datosFormulario.getString("puerto");
+        String origen = datosFormulario.getString("origen");
+        String ids = datosFormulario.getString("id");
 
         //Capturando datos destino
-        String ipDestino = "";
-        String puertoDestino = "";
-        String destino = "";
+        String ipDestino = datosFormulario.getString("ipD");
+        String puertoDestino = datosFormulario.getString("puertoD");
+        String destino = datosFormulario.getString("destino");
 
-        String operacion = "";
+        String operacion = datosFormulario.getString("operacion");
 
-        String ubicacion = "";
-
-        InputStream archivoJson = null;
-
-        // Crear una instancia de DiskFileItemFactory para gestionar los archivos enviados
-        DiskFileItemFactory factory = new DiskFileItemFactory();
-
-        // Crear una instancia de ServletFileUpload para procesar la solicitud
-        ServletFileUpload upload = new ServletFileUpload(factory);
-
-        try {
-
-            // Obtener todos los elementos del formulario
-            List<FileItem> items = upload.parseRequest(new ServletRequestContext(request));
-
-            // Recorrer todos los elementos del formulario
-            for (FileItem item : items) {
-                if (item.isFormField()) {
-
-                    switch (item.getFieldName()) {
-                        case "ip":
-                            ip = item.getString();
-                            break;
-                        case "puerto":
-                            puerto = item.getString();
-                            break;
-                        case "origen":
-                            origen = item.getString();
-                            break;
-                        case "id":
-                            ids = item.getString();
-                            break;
-                        case "ipD":
-                            ipDestino = item.getString();
-                            break;
-                        case "puertoD":
-                            puertoDestino = item.getString();
-                            break;
-                        case "destino":
-                            destino = item.getString();
-                            break;
-                        case "operacion":
-                            operacion = item.getString();
-                            break;
-                        case "ubicacion":
-                            ubicacion = item.getString();
-                            break;
-                    }
-
-                } else {
-                    archivoJson = item.getInputStream();
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
+        String ubicacion = datosFormulario.getString("ubicacion");
+        
+        //Obtengo texto del archivo json
+        String textoJsonLeido = datosFormulario.getString("archivoJson");
+        
         System.out.println("Los valores de origen para la URL son: ip: " + ip + ", puerto: " + puerto + ", origen: " + origen + ", ids: " + ids);
         System.out.println("Los valores de destino para la URL son: ip: " + ipDestino + ", puerto: " + puertoDestino + ", destino: " + destino);
         System.out.println("La ubicacion es: " + ubicacion);
         System.out.println("La operacion es: " + operacion);
 
-        // Leo el contenido del archivo.json 
-        StringBuilder textoJsonLeido = new StringBuilder();
+        System.out.println("El array del json leido al final de la validacion es: " + textoJsonLeido);
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(archivoJson))) {
-
-            String linea;
-            while ((linea = reader.readLine()) != null) {
-                textoJsonLeido.append(linea);
-            }
-
-        } catch (IOException ex) {
-            System.out.println("El archivo json es invalido" + ex.getMessage());
-            textoJsonLeido = new StringBuilder("");
-        }
-
-        System.out.println("El array del json leido al final de la validacion es: " + textoJsonLeido.toString());
-
-        Map<String, String> errores = validarCampos(ip, puerto, origen, ids, ipDestino, puertoDestino, destino, operacion, ubicacion, textoJsonLeido.toString());
+        Map<String, String> errores = validarCampos(ip, puerto, origen, ids, ipDestino, puertoDestino, destino, operacion, ubicacion, textoJsonLeido);
 
         if (!errores.isEmpty()) {
-
-            request.setAttribute("errores", errores);
-            request.setAttribute("ip", ip);
-            System.out.println("El valor de la ip es: " + ip);
-            request.setAttribute("puerto", puerto);
-            request.setAttribute("origen", origen);
-            request.setAttribute("id", ids);
-            request.setAttribute("ipDestino", ipDestino);
-            request.setAttribute("puertoDestino", puertoDestino);
-            request.setAttribute("destino", destino);
-            request.setAttribute("operacion", operacion);
-            System.out.println("El valor de la operacion es: " + ip);
-            request.setAttribute("ubicacion", ubicacion);
-            getServletContext().getRequestDispatcher("/consulta.jsp").forward(request, response);
+            
+            try (PrintWriter out = response.getWriter()){
+                out.println("Se encontraron los siguientes errores durante la validación de campos");
+                out.println(errores.toString());
+            }           
 
         } else {
 
