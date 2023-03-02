@@ -24,8 +24,9 @@ import java.util.Map;
 import javax.servlet.annotation.MultipartConfig;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.apache.log4j.Logger;
-
+import java.util.logging.*;
+import javax.servlet.ServletInputStream;
+import services.LoggerService;
 
 @MultipartConfig(
         fileSizeThreshold = 1024 * 1024 * 10, // 10MB
@@ -33,18 +34,18 @@ import org.apache.log4j.Logger;
         maxRequestSize = 1024 * 1024 * 50 // 50MB
 )
 public class ConsultaSolrSV extends HttpServlet {
-    
-    static Logger logger = Logger.getLogger(ConsultaSolrSV.class);
+
+    final static Logger logger = LoggerService.configLogger(ConsultaSolrSV.class.getName());
 
     private String[] idsArray(String ids) {
-        
+
         //Genero un arreglo a partir de la cadena limpia
         String[] idsArray = ids.split("\\|\\|");
-        
+
         for (int i = 0; i < idsArray.length; i++) {
             //Limpio la cadena de texto de los ids
-            idsArray[i] = idsArray[i].trim();            
-        }        
+            idsArray[i] = idsArray[i].trim();
+        }
 
         return idsArray;
 
@@ -148,7 +149,7 @@ public class ConsultaSolrSV extends HttpServlet {
                 queryParam.append("id:").append(idsArray[i]).append("%20OR%20");
             }
         }
-        
+
         logger.info("Los parametros id quedaron como: " + queryParam.toString());
         System.out.println("Los parametros id quedaron como: " + queryParam.toString());
         URL solrOrigen = new URL(urlSolr + "fq=" + queryParam.toString() + "&q=*:*&wt=json");
@@ -209,7 +210,7 @@ public class ConsultaSolrSV extends HttpServlet {
             }
 
         }
-        
+
         logger.info("Longitud del arreglo: " + jsonArrayAdd.length());
         System.out.println("Longitud del arreglo: " + jsonArrayAdd.length());
 
@@ -265,7 +266,7 @@ public class ConsultaSolrSV extends HttpServlet {
                     }
                 }
             }
-            
+
             String documento = doc.toString();
             logger.info("El documento " + i + " a escribir, con copyFields limpios es: " + documento);
             System.out.println("El documento " + i + " a escribir, con copyFields limpios es: " + documento);
@@ -301,10 +302,10 @@ public class ConsultaSolrSV extends HttpServlet {
         textoArchivoJson.put(fieldTypes);
         textoArchivoJson.put(fields);
         textoArchivoJson.put(copyFields);
-        
+
         logger.info("El array que se escribirá en el archivo JSON es el siguiente: " + textoArchivoJson.toString());
         System.out.println("El array que se escribirá en el archivo JSON es el siguiente: " + textoArchivoJson.toString());
-        
+
         logger.info("La ruta dónde se escribirà el archivo es: " + ubicacion + "\\" + elementosNombre.toString() + ".json");
         System.out.println("La ruta dónde se escribirà el archivo es: " + ubicacion + "\\" + elementosNombre.toString() + ".json");
 
@@ -326,7 +327,7 @@ public class ConsultaSolrSV extends HttpServlet {
         String regexPuerto = "^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[0-5]?([0-9]){0,3}[0-9])$";
 
         if (operacion.equals("Indexar Archivo JSON")) {
-            
+
             logger.info("El archivo JSON dentro de la validacion es: " + textoJsonLeido);
             System.out.println("El archivo JSON dentro de la validacion es: " + textoJsonLeido);
 
@@ -361,7 +362,7 @@ public class ConsultaSolrSV extends HttpServlet {
                     } catch (IOException ex) {
                         errores.put("origen", "Error consultando esta colección, verifica si existe o si está escrita correctamente");
                     }
-                } 
+                }
             }
         }
 
@@ -423,25 +424,28 @@ public class ConsultaSolrSV extends HttpServlet {
                 errores.put("ubicacion", "La ubicación no puede ser vacía");
             }
         }
-        
+
         return errores;
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        
+        logger.info("Hola Alex probando funcionamiento del logger");
 
-        InputStream datos = request.getInputStream();
-        StringBuilder datosLeidos = new StringBuilder();
-        
-        try(BufferedReader rd = new BufferedReader(new InputStreamReader(datos))){
-            String linea;
-            if((linea = rd.readLine()) != null){
-                datosLeidos.append(linea);
-            }            
-        }       
-        
-        JSONObject datosFormulario = new JSONObject(datosLeidos);
-        
+        BufferedReader reader = request.getReader();
+        StringBuilder stringBuilder = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            stringBuilder.append(line);
+        }
+        String requestBody = stringBuilder.toString();
+
+        JSONObject datosFormulario = new JSONObject(requestBody);
+
+        System.out.println("El json de la solicitud es: " + datosFormulario.toString());
+        logger.info("El json de la solicitud es: " + datosFormulario.toString());
+
         //Obteniendo datos origen
         String ip = datosFormulario.getString("ip");
         String puerto = datosFormulario.getString("puerto");
@@ -456,33 +460,33 @@ public class ConsultaSolrSV extends HttpServlet {
         String operacion = datosFormulario.getString("operacion");
 
         String ubicacion = datosFormulario.getString("ubicacion");
-        
+
         //Obtengo texto del archivo json
         String textoJsonLeido = datosFormulario.getString("archivoJson");
-        
+
         logger.info("Los valores de origen para la URL son: ip: " + ip + ", puerto: " + puerto + ", origen: " + origen + ", ids: " + ids);
         System.out.println("Los valores de origen para la URL son: ip: " + ip + ", puerto: " + puerto + ", origen: " + origen + ", ids: " + ids);
-        
+
         logger.info("Los valores de destino para la URL son: ip: " + ipDestino + ", puerto: " + puertoDestino + ", destino: " + destino);
         System.out.println("Los valores de destino para la URL son: ip: " + ipDestino + ", puerto: " + puertoDestino + ", destino: " + destino);
-        
+
         logger.info("La ubicacion es: " + ubicacion);
         System.out.println("La ubicacion es: " + ubicacion);
-        
+
         logger.info("La operacion es: " + operacion);
         System.out.println("La operacion es: " + operacion);
-        
+
         logger.info("El array del json leido al final de la validacion es: " + textoJsonLeido);
         System.out.println("El array del json leido al final de la validacion es: " + textoJsonLeido);
 
         Map<String, String> errores = validarCampos(ip, puerto, origen, ids, ipDestino, puertoDestino, destino, operacion, ubicacion, textoJsonLeido);
 
         if (!errores.isEmpty()) {
-            
-            try (PrintWriter out = response.getWriter()){
+
+            try (PrintWriter out = response.getWriter()) {
                 out.println("Se encontraron los siguientes errores durante la validación de campos");
                 out.println(errores);
-            }           
+            }
 
         } else {
 
@@ -533,25 +537,25 @@ public class ConsultaSolrSV extends HttpServlet {
 
             System.out.println("Este es el schema original: " + jsonSchemaOrigen.toString() + "\n");
             logger.info("Este es el schema original: " + jsonSchemaOrigen.toString() + "\n");
-            
+
             System.out.println("Este es el schema destino: " + jsonSchemaDestino.toString() + "\n");
             logger.info("Este es el schema destino: " + jsonSchemaDestino.toString() + "\n");
-            
+
             System.out.println("Este es el copyfields original: " + jsonCopyFieldsOrigen.toString() + "\n");
             logger.info("Este es el copyfields original: " + jsonCopyFieldsOrigen.toString() + "\n");
-            
+
             System.out.println("Este es el copyfields destino: " + jsonCopyFieldsDestino.toString() + "\n");
             logger.info("Este es el copyfields destino: " + jsonCopyFieldsDestino.toString() + "\n");
-            
+
             System.out.println("Este es el fields original de origen: " + jsonFieldsOrigen.toString() + "\n");
             logger.info("Este es el fields original de origen: " + jsonFieldsOrigen.toString() + "\n");
-            
+
             System.out.println("Este es el fields original de destino: " + jsonFieldsDestino.toString() + "\n");
             logger.info("Este es el fields original de destino: " + jsonFieldsDestino.toString() + "\n");
-            
+
             System.out.println("Este es el fieldTypes original de origen: " + jsonFieldTypesOrigen.toString() + "\n");
             logger.info("Este es el fieldTypes original de origen: " + jsonFieldTypesOrigen.toString() + "\n");
-            
+
             System.out.println("Este es el fieldTypes original de destino: " + jsonFieldTypesDestino.toString() + "\n");
             logger.info("Este es el fieldTypes original de destino: " + jsonFieldTypesDestino.toString() + "\n");
 
@@ -614,7 +618,7 @@ public class ConsultaSolrSV extends HttpServlet {
 
                         System.out.println("El array del json leido es: " + textoJsonLeido);
                         logger.info("El array del json leido es: " + textoJsonLeido);
-                        
+
                         JSONArray arrayJsonLeído = new JSONArray(textoJsonLeido);
 
                         //Extraigo los docs, fields, fieldTypes y copyfields desde el archivo json leido

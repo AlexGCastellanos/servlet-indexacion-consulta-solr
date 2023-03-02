@@ -68,7 +68,7 @@
 
         <h1>Ingresa los parametros para la indexacion</h1>
         
-        <form action="/consulta" method="post" enctype="multipart/form-data">
+        <form action="/api-servlet-solr/consulta" method="post" enctype="multipart/form-data">
             <div id="ip_div" style="margin: 1em;">
                 <label>Ip Origen ${operacion}</label>
                 <div>
