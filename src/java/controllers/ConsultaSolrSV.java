@@ -22,10 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.servlet.annotation.MultipartConfig;
-import org.apache.tomcat.util.http.fileupload.FileItem;
-import org.apache.tomcat.util.http.fileupload.disk.DiskFileItemFactory;
-import org.apache.tomcat.util.http.fileupload.servlet.ServletFileUpload;
-import org.apache.tomcat.util.http.fileupload.servlet.ServletRequestContext;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -276,7 +272,7 @@ public class ConsultaSolrSV extends HttpServlet {
 
         for (int i = 0; i < idsArray.length; i++) {
             if (i == (idsArray.length - 1)) {
-                elementosNombre.append("id_").append(idsArray[i]).append(fecha).append("T" + hora + "Z");
+                elementosNombre.append("id_").append(idsArray[i]).append(fecha).append("T").append(hora).append("Z");
             } else {
                 elementosNombre.append("id_").append(idsArray[i]).append("_");
             }
@@ -310,11 +306,11 @@ public class ConsultaSolrSV extends HttpServlet {
         String regexIp = "^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
         String regexPuerto = "^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[0-5]?([0-9]){0,3}[0-9])$";
 
-        if (operacion.equals("4")) {
+        if (operacion.equals("Indexar Archivo JSON")) {
 
             System.out.println("El archivo JSON dentro de la validacion es: " + textoJsonLeido);
 
-            if (textoJsonLeido.isEmpty()) {
+            if (textoJsonLeido == null || textoJsonLeido.isEmpty()) {
                 errores.put("archivo", "Por favor seleccione un archivo json valido para indexar");
             }
 
@@ -349,11 +345,7 @@ public class ConsultaSolrSV extends HttpServlet {
             }
         }
 
-        if (operacion.equals("0")) {
-            errores.put("operacion", "Por favor seleccione una operación a realizar");
-        }
-
-        if (operacion.equals("0") || operacion.equals("1") || operacion.equals("2") || operacion.equals("3")) {
+        if (operacion.equals("Indexar") || operacion.equals("Guardar") || operacion.equals("Guardar e Indexar")) {
             if (ids.isEmpty()) {
                 errores.put("id", "El campo id no puede ser vacío");
             } else {
@@ -372,7 +364,7 @@ public class ConsultaSolrSV extends HttpServlet {
             }
         }
 
-        if (operacion.equals("2")) {
+        if (operacion.equals("Guardar")) {
             if (ubicacion.isEmpty()) {
                 errores.put("ubicacion", "La ubicación no puede ser vacía");
             }
@@ -406,7 +398,7 @@ public class ConsultaSolrSV extends HttpServlet {
             }
         }
 
-        if (operacion.equals("3")) {
+        if (operacion.equals("Guardar e Indexar")) {
             if (ubicacion.isEmpty()) {
                 errores.put("ubicacion", "La ubicación no puede ser vacía");
             }
@@ -461,7 +453,7 @@ public class ConsultaSolrSV extends HttpServlet {
             
             try (PrintWriter out = response.getWriter()){
                 out.println("Se encontraron los siguientes errores durante la validación de campos");
-                out.println(errores.toString());
+                out.println(errores);
             }           
 
         } else {
@@ -475,7 +467,7 @@ public class ConsultaSolrSV extends HttpServlet {
             JSONObject fields = new JSONObject();
             JSONObject copyFields = new JSONObject();
 
-            if (!operacion.equals("4")) {
+            if (!operacion.equals("Indexar Archivo JSON")) {
                 //Obtengo el schema Origen en formato Json
                 jsonSchemaOrigen = new JSONObject(consultarSchema(ip, puerto, origen)).getJSONObject("schema");
 
@@ -497,7 +489,7 @@ public class ConsultaSolrSV extends HttpServlet {
             JSONArray jsonFieldsDestino = new JSONArray();
             JSONArray jsonFieldTypesDestino = new JSONArray();
 
-            if (!operacion.equals("2")) {
+            if (!operacion.equals("Guardar")) {
                 //Obtengo el schema Destino en formato Json
                 jsonSchemaDestino = new JSONObject(consultarSchema(ipDestino, puertoDestino, destino)).getJSONObject("schema");
 
@@ -538,7 +530,7 @@ public class ConsultaSolrSV extends HttpServlet {
 
                 switch (operacion) {
 
-                    case "1":
+                    case "Indexar":
 
                         //Obtengo el resultado de la consulta en formato Json
                         jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids)).getJSONObject("response").getJSONArray("docs");
@@ -550,7 +542,7 @@ public class ConsultaSolrSV extends HttpServlet {
                         out.println(jsonDocsOrigen.toString());
                         break;
 
-                    case "2":
+                    case "Guardar":
 
                         //Obtengo el resultado de la consulta en formato Json
                         jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids)).getJSONObject("response").getJSONArray("docs");
@@ -561,7 +553,7 @@ public class ConsultaSolrSV extends HttpServlet {
                         out.println(jsonDocsOrigen.toString());
                         break;
 
-                    case "3":
+                    case "Guardar e Indexar":
 
                         //Obtengo el resultado de la consulta en formato Json
                         jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids)).getJSONObject("response").getJSONArray("docs");
@@ -574,10 +566,10 @@ public class ConsultaSolrSV extends HttpServlet {
                         out.println(jsonDocsOrigen.toString());
                         break;
 
-                    case "4":
+                    case "Indexar Archivo JSON":
 
-                        System.out.println("El array del json leido es: " + textoJsonLeido.toString());
-                        JSONArray arrayJsonLeído = new JSONArray(textoJsonLeido.toString());
+                        System.out.println("El array del json leido es: " + textoJsonLeido);
+                        JSONArray arrayJsonLeído = new JSONArray(textoJsonLeido);
 
                         //Extraigo los docs, fields, fieldTypes y copyfields desde el archivo json leido
                         JSONArray docsJsonLeido = new JSONArray();
