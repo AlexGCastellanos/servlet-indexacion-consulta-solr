@@ -244,7 +244,7 @@ public class ConsultaSolrSV extends HttpServlet {
 
     }
 
-    private void guardar(JSONArray json, JSONArray jsonCopyFieldsOrigen, JSONObject fields, JSONObject copyFields, JSONObject fieldTypes, String[] idsArray, String ubicacion) throws IOException {
+    private void guardar(JSONArray json, JSONArray jsonCopyFieldsOrigen, JSONObject fields, JSONObject copyFields, JSONObject fieldTypes, String[] idsArray) throws IOException {
         
         PropertiesService pf = new PropertiesService();
         pf.loadProperties();
@@ -321,119 +321,10 @@ public class ConsultaSolrSV extends HttpServlet {
         }
     }
 
-//    private Map<String, String> validarCampos(String ip, String puerto, String origen, String ids, String ipDestino, String puertoDestino, String destino, String operacion, String ubicacion, String textoJsonLeido) {
-//
-//        Map<String, String> errores = new HashMap<>();
-//
-//        String regexIp = "^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
-//        String regexPuerto = "^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[0-5]?([0-9]){0,3}[0-9])$";
-//
-//        if (operacion.equals("Indexar Archivo JSON")) {
-//
-//            logger.info("El archivo JSON dentro de la validacion es: " + textoJsonLeido);
-//            System.out.println("El archivo JSON dentro de la validacion es: " + textoJsonLeido);
-//
-//            if (textoJsonLeido == null || textoJsonLeido.isEmpty()) {
-//                errores.put("archivo", "Por favor seleccione un archivo json valido para indexar");
-//            }
-//
-//        } else {
-//
-//            if (ip.isEmpty()) {
-//                errores.put("ip", "El campo ip origen no puede ser vacío");
-//            } else if (!ip.matches(regexIp)) {
-//                errores.put("ip", "La ip no tiene el formato correcto xxx.xxx.xxx.xxx");
-//            }
-//
-//            if (puerto.isEmpty()) {
-//                errores.put("puerto", "El campo puerto origen no puede ser vacío");
-//            } else if (!puerto.matches(regexPuerto)) {
-//                errores.put("puerto", "El puerto no tiene el formato correcto, debe ser un numero entre 0 y 65535");
-//            }
-//
-//            if (origen.isEmpty()) {
-//                errores.put("origen", "El nombre de la colección no puede ser vacío");
-//            } else {
-//                if (!(errores.containsKey("ip") || errores.containsKey("puerto"))) {
-//                    try {
-//                        JSONObject consulta = new JSONObject(consultarSchema(ip, puerto, origen));
-//                        Integer status = consulta.getJSONObject("responseHeader").getInt("status");
-//                        if (status != 0) {
-//                            errores.put("origen", "Esta colección no existe, ingresa una colección valida");
-//                        }
-//                    } catch (IOException ex) {
-//                        errores.put("origen", "Error consultando esta colección, verifica si existe o si está escrita correctamente");
-//                    }
-//                }
-//            }
-//
-//        }
-//
-//        if (operacion.equals("Indexar") || operacion.equals("Guardar") || operacion.equals("Guardar e Indexar")) {
-//            if (ids.isEmpty()) {
-//                errores.put("id", "El campo id no puede ser vacío");
-//            } else {
-//                try {
-//                    JSONObject jsonConsulta = new JSONObject(consultarColeccion(ip, puerto, origen, ids));
-//                    JSONObject responseHeader = jsonConsulta.getJSONObject("responseHeader");
-//                    Integer status = responseHeader.getInt("status");
-//                    JSONObject respuesta = jsonConsulta.getJSONObject("response");
-//                    Integer numFound = respuesta.getInt("numFound");
-//                    if (status != 0 || numFound == 0) {
-//                        errores.put("id", "El id ingresado no existe en la colección de origen");
-//                    }
-//                } catch (IOException ex) {
-//                    errores.put("id", "Error en la consulta, verifica que los datos de id, ip, puerto y coleccion de origen sean correctos");
-//                }
-//            }
-//        }
-//
-//        if (operacion.equals("Guardar")) {
-//            if (ubicacion.isEmpty()) {
-//                errores.put("ubicacion", "La ubicación no puede ser vacía");
-//            }
-//        } else {
-//            if (ipDestino.isEmpty()) {
-//                errores.put("ipD", "El campo ip destino no puede ser vacío");
-//            } else if (!ipDestino.matches(regexIp)) {
-//                errores.put("ipD", "La IP no tiene el formato correcto xxx.xxx.xxx.xxx");
-//            }
-//
-//            if (puertoDestino.isEmpty()) {
-//                errores.put("puertoD", "El campo puerto destino no puede ser vacío");
-//            } else if (!puertoDestino.matches(regexPuerto)) {
-//                errores.put("puertoD", "El puerto no tiene el formato correcto, debe ser un numero entre 0 y 65535");
-//            }
-//
-//            if (destino.isEmpty()) {
-//                errores.put("destino", "El nombre de la colección no puede ser vacío");
-//            } else {
-//                if (!(errores.containsKey("ipD") || errores.containsKey("puertoD"))) {
-//                    try {
-//                        JSONObject consulta = new JSONObject(consultarSchema(ipDestino, puertoDestino, destino));
-//                        Integer status = consulta.getJSONObject("responseHeader").getInt("status");
-//                        if (status != 0) {
-//                            errores.put("destino", "Esta colección no existe, ingresa una colección valida");
-//                        }
-//                    } catch (IOException ex) {
-//                        errores.put("destino", "Error consultando esta colección, verifica si existe o si está escrita correctamente");
-//                    }
-//                }
-//            }
-//        }
-//
-//        if (operacion.equals("Guardar e Indexar")) {
-//            if (ubicacion.isEmpty()) {
-//                errores.put("ubicacion", "La ubicación no puede ser vacía");
-//            }
-//        }
-//
-//        return errores;
-//    }
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        logger.info("Hola Alex probando funcionamiento del logger");
+        logger.info("Probando funcionamiento del logger");
 
         BufferedReader reader = request.getReader();
         StringBuilder stringBuilder = new StringBuilder();
@@ -461,8 +352,6 @@ public class ConsultaSolrSV extends HttpServlet {
 
         String operacion = datosFormulario.getString("operacion");
 
-        String ubicacion = datosFormulario.getString("ubicacion");
-
         //Obtengo texto del archivo json
         String textoJsonLeido = datosFormulario.getString("archivoJson");
 
@@ -472,24 +361,12 @@ public class ConsultaSolrSV extends HttpServlet {
         logger.info("Los valores de destino para la URL son: ip: " + ipDestino + ", puerto: " + puertoDestino + ", destino: " + destino);
         System.out.println("Los valores de destino para la URL son: ip: " + ipDestino + ", puerto: " + puertoDestino + ", destino: " + destino);
 
-        logger.info("La ubicacion es: " + ubicacion);
-        System.out.println("La ubicacion es: " + ubicacion);
-
         logger.info("La operacion es: " + operacion);
         System.out.println("La operacion es: " + operacion);
 
         logger.info("El array del json leido al final de la validacion es: " + textoJsonLeido);
         System.out.println("El array del json leido al final de la validacion es: " + textoJsonLeido);
 
-//        Map<String, String> errores = validarCampos(ip, puerto, origen, ids, ipDestino, puertoDestino, destino, operacion, ubicacion, textoJsonLeido);
-//        if (!errores.isEmpty()) {
-//
-//            try (PrintWriter out = response.getWriter()) {
-//                out.println("Se encontraron los siguientes errores durante la validación de campos");
-//                out.println(errores);
-//            }
-//
-//        } else {
         JSONObject jsonSchemaOrigen = new JSONObject();
         JSONArray jsonFieldTypesOrigen = new JSONArray();
         JSONArray jsonFieldsOrigen = new JSONArray();
@@ -586,8 +463,8 @@ public class ConsultaSolrSV extends HttpServlet {
                     indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
 
                     response.setContentType("application/json;charset=UTF-8");
-                    out.println("Se ha indexado con exito el siguiente json: ");
-                    out.println(jsonDocsOrigen.toString());
+                    out.println("La indexacion ha sido exitosa");
+                    //out.println(jsonDocsOrigen.toString());
                     break;
 
                 case "Guardar":
@@ -595,9 +472,9 @@ public class ConsultaSolrSV extends HttpServlet {
                     //Obtengo el resultado de la consulta en formato Json
                     jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids)).getJSONObject("response").getJSONArray("docs");
 
-                    guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids), ubicacion);
+                    guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
                     response.setContentType("application/json;charset=UTF-8");
-                    out.println("Se ha guardado con exito el siguiente json: ");
+                    out.println("La consulta se ha guardado con exito");
                     out.println(jsonDocsOrigen.toString());
                     break;
 
@@ -606,18 +483,18 @@ public class ConsultaSolrSV extends HttpServlet {
                     //Obtengo el resultado de la consulta en formato Json
                     jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids)).getJSONObject("response").getJSONArray("docs");
 
-                    guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids), ubicacion);
+                    guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
                     indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
 
                     response.setContentType("application/json;charset=UTF-8");
-                    out.println("Se ha guardado e indexado con exito el siguiente json: ");
+                    out.println("La consulta se ha guardado e indexado con exito");
                     out.println(jsonDocsOrigen.toString());
                     break;
 
                 case "Indexar Archivo JSON":
 
                     System.out.println("El array del json leido es: " + textoJsonLeido);
-                    logger.info("El array del json leido es: " + textoJsonLeido);
+                    logger.info("El array del json leido es: ");
 
                     JSONArray arrayJsonLeído = new JSONArray(textoJsonLeido);
 
@@ -645,7 +522,7 @@ public class ConsultaSolrSV extends HttpServlet {
                     indexar(urlDestino, urlSchemaDestino, docsJsonLeido, fieldTypesJsonLeido, jsonFieldTypesDestino, fieldsJsonLeido, jsonFieldsDestino, copyFieldsJsonLeido, jsonCopyFieldsDestino);
 
                     response.setContentType("application/json;charset=UTF-8");
-                    out.println("El archivo.json se ha indexado con exito, con la siguiente informacion: ");
+                    out.println("El archivo.json se ha indexado con exito");
                     out.println(docsJsonLeido.toString());
                     break;
             }

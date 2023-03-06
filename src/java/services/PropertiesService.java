@@ -47,8 +47,6 @@ public class PropertiesService {
 
     public void setPathFileModule(String pathFileModule) {
         this.pathFileModule = pathFileModule;
-    }
-    
-   
+    }  
     
 }
