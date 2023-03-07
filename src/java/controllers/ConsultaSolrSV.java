@@ -130,22 +130,79 @@ public class ConsultaSolrSV extends HttpServlet {
 
     }
 
-    private String consultarColeccion(String ip, String puerto, String origen, String ids) throws IOException {
+    private String consultarTamañoColeccion(String ip, String puerto, String origen) throws IOException {
+
+        //Formando la url de consulta de status
+        String urlSolr = "http://" + ip + ":" + puerto + "/solr/admin/cores?action=STATUS&core=" + origen;
+
+        logger.info("La URL de consulta de status quedó como: " + urlSolr);
+        URL solrOrigen = new URL(urlSolr);
+
+        HttpURLConnection connOrigen = (HttpURLConnection) solrOrigen.openConnection();
+        connOrigen.setRequestMethod("GET");
+
+        BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
+
+        StringBuilder resultado = new StringBuilder();
+        String linea;
+
+        while ((linea = rd.readLine()) != null) {
+            resultado.append(linea);
+        }
+
+        connOrigen.disconnect();
+
+        return resultado.toString();
+
+    }
+
+    private String consultarColeccionPorBatch(String ip, String puerto, String origen, Integer start, Integer rows) throws IOException{
+
+        //Formando la url de origen de consulta
+        StringBuilder urlSolr = new StringBuilder().append("http://").append(ip).append(":").append(puerto).append("/solr/").append(origen)
+                .append("/select?&q=*:*&wt=json&start=").append(start).append("&rows=").append(rows);
+
+        logger.info("La url de indexacion por batch quedó como: " + urlSolr.toString());
+        URL solrOrigen = new URL(urlSolr.toString());
+
+        HttpURLConnection connOrigen = (HttpURLConnection) solrOrigen.openConnection();
+        connOrigen.setRequestMethod("GET");
+
+        BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
+
+        StringBuilder resultado = new StringBuilder();
+        String linea;
+
+        while ((linea = rd.readLine()) != null) {
+            resultado.append(linea);
+        }
+
+        connOrigen.disconnect();
+
+        return resultado.toString();
+    }
+
+    private String consultarColeccion(String ip, String puerto, String origen, String ids, Integer numDocs) throws IOException {
 
         //Formando la url de origen de consulta
         String urlSolr = "http://" + ip + ":" + puerto + "/solr/" + origen + "/select?";
 
-        //Genero un arreglo a partir de la cadena limpia
-        String[] idsArray = idsArray(ids);
-
         StringBuilder queryParam = new StringBuilder();
 
-        //Doy formato URL por cada id en el arreglo
-        for (int i = 0; i < idsArray.length; i++) {
-            if (i == (idsArray.length - 1)) {
-                queryParam.append("id:").append(idsArray[i]);
-            } else {
-                queryParam.append("id:").append(idsArray[i]).append("%20OR%20");
+        if (ids.equals(" ") || ids.isEmpty()) {
+            queryParam.append("");
+            urlSolr = urlSolr + "&rows=" + numDocs;
+        } else {
+            //Genero un arreglo a partir de la cadena limpia
+            String[] idsArray = idsArray(ids);
+
+            //Doy formato URL por cada id en el arreglo
+            for (int i = 0; i < idsArray.length; i++) {
+                if (i == (idsArray.length - 1)) {
+                    queryParam.append("id:").append(idsArray[i]);
+                } else {
+                    queryParam.append("id:").append(idsArray[i]).append("%20OR%20");
+                }
             }
         }
 
@@ -245,10 +302,10 @@ public class ConsultaSolrSV extends HttpServlet {
     }
 
     private void guardar(JSONArray json, JSONArray jsonCopyFieldsOrigen, JSONObject fields, JSONObject copyFields, JSONObject fieldTypes, String[] idsArray) throws IOException {
-        
+
         PropertiesService pf = new PropertiesService();
         pf.loadProperties();
-        
+
         //Creo un JSONArray para guardar mis docs limpios
         JSONArray jsonDocsOrigen = new JSONArray();
 
@@ -295,10 +352,10 @@ public class ConsultaSolrSV extends HttpServlet {
             } else {
                 elementosNombre.append("id_").append(idsArray[i]).append("_");
             }
-        }        
-       
+        }
+
         //Escribo docs, fields, fieldTypes y copyfields en un archivo.json
-        File archivo = new File(pf.getPathFileModule()+"/copyCollection/"+elementosNombre.toString()+".json");
+        File archivo = new File(pf.getPathFileModule() + "/copyCollection/" + elementosNombre.toString() + ".json");
         JSONArray textoArchivoJson = new JSONArray();
         textoArchivoJson.put(docs);
         textoArchivoJson.put(fieldTypes);
@@ -308,8 +365,8 @@ public class ConsultaSolrSV extends HttpServlet {
         logger.info("El array que se escribirá en el archivo JSON es el siguiente: " + textoArchivoJson.toString());
         System.out.println("El array que se escribirá en el archivo JSON es el siguiente: " + textoArchivoJson.toString());
 
-        logger.info("La ruta dónde se escribirà el archivo es: "+pf.getPathFileModule()+"/copyCollection/"+elementosNombre.toString()+".json");
-        System.out.println("La ruta dónde se escribirà el archivo es: "+pf.getPathFileModule()+"/copyCollection/"+elementosNombre.toString()+ ".json");
+        logger.info("La ruta dónde se escribirà el archivo es: " + pf.getPathFileModule() + "/copyCollection/" + elementosNombre.toString() + ".json");
+        System.out.println("La ruta dónde se escribirà el archivo es: " + pf.getPathFileModule() + "/copyCollection/" + elementosNombre.toString() + ".json");
 
         try (FileWriter writer = new FileWriter(archivo, true)) {
 
@@ -450,6 +507,11 @@ public class ConsultaSolrSV extends HttpServlet {
             String schema = "http://" + ipDestino + ":" + puertoDestino + "/solr/" + destino + "/schema";
             URL urlSchemaDestino = new URL(schema);
 
+            //Obtengo status de la coleccion de origen
+            JSONObject statusCore = new JSONObject(consultarTamañoColeccion(ip, puerto, origen));
+            Integer numDocs = statusCore.getJSONObject("status").getJSONObject(origen).getJSONObject("index").getInt("numDocs");
+            Integer sizeInBytes = statusCore.getJSONObject("status").getJSONObject(origen).getJSONObject("index").getInt("sizeInBytes");
+
             System.out.println("La operacion seleccionada por el usuario es: " + operacion);
             logger.info("La operacion seleccionada por el usuario es: " + operacion);
 
@@ -457,10 +519,24 @@ public class ConsultaSolrSV extends HttpServlet {
 
                 case "Indexar":
 
-                    //Obtengo el resultado de la consulta en formato Json
-                    jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids)).getJSONObject("response").getJSONArray("docs");
+                    if (((ids.equals(" ") || ids.isEmpty()) && sizeInBytes <= 20000000) || !(ids.equals(" ") || ids.isEmpty())) {
 
-                    indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
+                        jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids, numDocs)).getJSONObject("response").getJSONArray("docs");
+                        indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
+
+                    } else {
+
+                        Integer promDocsBatch = 10000000 / (sizeInBytes / numDocs);
+
+                        for (int i = 0; i <= promDocsBatch; i+= promDocsBatch) {
+                            
+                            //Obtengo el resultado de la consulta en formato Json
+                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i+1, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
+                            indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
+                        
+                        }
+                        
+                    }
 
                     response.setContentType("application/json;charset=UTF-8");
                     out.println("La indexacion ha sido exitosa");
