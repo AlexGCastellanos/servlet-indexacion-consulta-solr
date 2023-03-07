@@ -544,20 +544,52 @@ public class ConsultaSolrSV extends HttpServlet {
                     break;
 
                 case "Guardar":
+                    
+                    if (((ids.equals(" ") || ids.isEmpty()) && sizeInBytes <= 20000000) || !(ids.equals(" ") || ids.isEmpty())) {
 
-                    //Obtengo el resultado de la consulta en formato Json
-                    jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids)).getJSONObject("response").getJSONArray("docs");
+                        jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids, numDocs)).getJSONObject("response").getJSONArray("docs");
+                        guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
 
-                    guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
+                    } else {
+
+                        Integer promDocsBatch = 10000000 / (sizeInBytes / numDocs);
+
+                        for (int i = 0; i <= promDocsBatch; i+= promDocsBatch) {
+                            
+                            //Obtengo el resultado de la consulta en formato Json
+                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i+1, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
+                            guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
+                        
+                        }
+                        
+                    }
+
                     response.setContentType("application/json;charset=UTF-8");
                     out.println("La consulta se ha guardado con exito");
-                    out.println(jsonDocsOrigen.toString());
                     break;
 
                 case "Guardar e Indexar":
+                    
+                    if (((ids.equals(" ") || ids.isEmpty()) && sizeInBytes <= 20000000) || !(ids.equals(" ") || ids.isEmpty())) {
 
-                    //Obtengo el resultado de la consulta en formato Json
-                    jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids)).getJSONObject("response").getJSONArray("docs");
+                        jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids, numDocs)).getJSONObject("response").getJSONArray("docs");
+                        guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
+                        indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
+
+                    } else {
+
+                        Integer promDocsBatch = 10000000 / (sizeInBytes / numDocs);
+
+                        for (int i = 0; i <= promDocsBatch; i+= promDocsBatch) {
+                            
+                            //Obtengo el resultado de la consulta en formato Json
+                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i+1, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
+                            guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
+                            indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
+                        
+                        }
+                        
+                    }
 
                     guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
                     indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
@@ -601,12 +633,12 @@ public class ConsultaSolrSV extends HttpServlet {
                     out.println("El archivo.json se ha indexado con exito");
                     out.println(docsJsonLeido.toString());
                     break;
+                    
             }
 
         } catch (IOException e) {
             e.printStackTrace();
         }
-        //}
     }
 
     @Override
