@@ -17,9 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import javax.servlet.annotation.MultipartConfig;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -37,6 +35,10 @@ public class ConsultaSolrSV extends HttpServlet {
     final static Logger logger = LoggerService.configLogger(ConsultaSolrSV.class.getName());
 
     private String[] idsArray(String ids) {
+
+        if (ids.isEmpty() || ids.equals(" ")) {
+            return null;
+        }
 
         //Genero un arreglo a partir de la cadena limpia
         String[] idsArray = ids.split("\\|\\|");
@@ -108,25 +110,51 @@ public class ConsultaSolrSV extends HttpServlet {
 
     private String consultarSchema(String ip, String puerto, String coleccion) throws IOException {
 
+        logger.info("Ingresé al método consultarSchema: ");
+
         //Obteniendo url para consultar schema Origen
         String schema = "http://" + ip + ":" + puerto + "/solr/" + coleccion + "/schema";
         URL urlSchema = new URL(schema);
 
+        logger.info("URL de consulta a schema quedó como: " + schema);
+
         HttpURLConnection connOrigen = (HttpURLConnection) urlSchema.openConnection();
         connOrigen.setRequestMethod("GET");
+        connOrigen.setConnectTimeout(3000);
 
-        BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
+        int responseCode = connOrigen.getResponseCode();
+        logger.info("El responseCode de la consulta a schema es: " + responseCode);
 
         StringBuilder resultado = new StringBuilder();
-        String linea;
 
-        while ((linea = rd.readLine()) != null) {
-            resultado.append(linea);
+        if (responseCode == 200) {
+
+            BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
+
+            String linea;
+
+            while ((linea = rd.readLine()) != null) {
+                resultado.append(linea);
+            }
+
+            logger.info("La respuesta de la consulta a schema es: " + resultado.toString());
+            connOrigen.disconnect();
+            return resultado.toString();
+
+        } else {
+
+            BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
+
+            String linea;
+
+            while ((linea = rd.readLine()) != null) {
+                resultado.append(linea);
+            }
+
+            logger.info("La respuesta de la consulta a schema es: " + resultado.toString());
+            return "error";
+
         }
-
-        connOrigen.disconnect();
-
-        return resultado.toString();
 
     }
 
@@ -156,11 +184,11 @@ public class ConsultaSolrSV extends HttpServlet {
 
     }
 
-    private String consultarColeccionPorBatch(String ip, String puerto, String origen, Integer start, Integer rows) throws IOException{
+    private String consultarColeccionPorBatch(String ip, String puerto, String origen, Integer start, Integer rows) throws IOException {
 
         //Formando la url de origen de consulta
         StringBuilder urlSolr = new StringBuilder().append("http://").append(ip).append(":").append(puerto).append("/solr/").append(origen)
-                .append("/select?&q=*:*&wt=json&start=").append(start).append("&rows=").append(rows);
+                .append("/select?q=*:*&wt=json&start=").append(start).append("&rows=").append(rows);
 
         logger.info("La url de indexacion por batch quedó como: " + urlSolr.toString());
         URL solrOrigen = new URL(urlSolr.toString());
@@ -184,6 +212,8 @@ public class ConsultaSolrSV extends HttpServlet {
 
     private String consultarColeccion(String ip, String puerto, String origen, String ids, Integer numDocs) throws IOException {
 
+        logger.info("Ingresé al método consultarColeccion: ");
+
         //Formando la url de origen de consulta
         String urlSolr = "http://" + ip + ":" + puerto + "/solr/" + origen + "/select?";
 
@@ -191,7 +221,7 @@ public class ConsultaSolrSV extends HttpServlet {
 
         if (ids.equals(" ") || ids.isEmpty()) {
             queryParam.append("");
-            urlSolr = urlSolr + "&rows=" + numDocs;
+            urlSolr = urlSolr + "rows=" + numDocs + "&";
         } else {
             //Genero un arreglo a partir de la cadena limpia
             String[] idsArray = idsArray(ids);
@@ -212,6 +242,7 @@ public class ConsultaSolrSV extends HttpServlet {
 
         HttpURLConnection connOrigen = (HttpURLConnection) solrOrigen.openConnection();
         connOrigen.setRequestMethod("GET");
+        connOrigen.setConnectTimeout(3000);
 
         BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
 
@@ -221,6 +252,8 @@ public class ConsultaSolrSV extends HttpServlet {
         while ((linea = rd.readLine()) != null) {
             resultado.append(linea);
         }
+
+        logger.info("La respuesta de la consulta a coleccion es: " + resultado.toString());
 
         connOrigen.disconnect();
 
@@ -301,7 +334,7 @@ public class ConsultaSolrSV extends HttpServlet {
 
     }
 
-    private void guardar(JSONArray json, JSONArray jsonCopyFieldsOrigen, JSONObject fields, JSONObject copyFields, JSONObject fieldTypes, String[] idsArray) throws IOException {
+    private void guardar(JSONArray json, JSONArray jsonCopyFieldsOrigen, JSONObject fields, JSONObject copyFields, JSONObject fieldTypes, String[] idsArray, String coleccion) throws IOException {
 
         PropertiesService pf = new PropertiesService();
         pf.loadProperties();
@@ -346,29 +379,145 @@ public class ConsultaSolrSV extends HttpServlet {
         String fecha = date.format(formatoFecha);
         String hora = time.format(formatoHora);
 
-        for (int i = 0; i < idsArray.length; i++) {
-            if (i == (idsArray.length - 1)) {
-                elementosNombre.append("id_").append(idsArray[i]).append(fecha).append("T").append(hora).append("Z");
-            } else {
-                elementosNombre.append("id_").append(idsArray[i]).append("_");
+        if (idsArray == null) {
+            elementosNombre.append(coleccion).append(fecha).append("T").append(hora).append("Z");
+        } else {
+
+            for (int i = 0; i < idsArray.length; i++) {
+                if (i == (idsArray.length - 1)) {
+                    elementosNombre.append("id_").append(idsArray[i]).append(fecha).append("T").append(hora).append("Z");
+                } else {
+                    elementosNombre.append("id_").append(idsArray[i]).append("_");
+                }
             }
         }
 
         //Escribo docs, fields, fieldTypes y copyfields en un archivo.json
-        File archivo = new File(pf.getPathFileModule() + "/copyCollection/" + elementosNombre.toString() + ".json");
+        String path = pf.getPathFileModule() + "/copyCollection/" + coleccion;
+        File file = new File(path);
+
+        if (file.exists()) {
+
+            file = new File(path + "/" + elementosNombre.toString() + ".json");
+
+        } else {
+
+            if (file.mkdir()) {
+
+                file = new File(path + "/" + elementosNombre.toString() + ".json");
+
+            } else {
+                logger.info("No se pudo crear el directorio: " + file.getAbsolutePath());
+            }
+        }
+
+        file.setExecutable(true);
+        file.setReadable(true);
+        file.setWritable(true);
+
         JSONArray textoArchivoJson = new JSONArray();
         textoArchivoJson.put(docs);
         textoArchivoJson.put(fieldTypes);
         textoArchivoJson.put(fields);
         textoArchivoJson.put(copyFields);
 
+        String absolutePath = file.getAbsolutePath();
         logger.info("El array que se escribirá en el archivo JSON es el siguiente: " + textoArchivoJson.toString());
         System.out.println("El array que se escribirá en el archivo JSON es el siguiente: " + textoArchivoJson.toString());
 
-        logger.info("La ruta dónde se escribirà el archivo es: " + pf.getPathFileModule() + "/copyCollection/" + elementosNombre.toString() + ".json");
-        System.out.println("La ruta dónde se escribirà el archivo es: " + pf.getPathFileModule() + "/copyCollection/" + elementosNombre.toString() + ".json");
+        logger.info("La ruta dónde se escribirá el archivo es: " + absolutePath);
+        System.out.println("La ruta dónde se escribirá el archivo es: " + absolutePath);
 
-        try (FileWriter writer = new FileWriter(archivo, true)) {
+        try (FileWriter writer = new FileWriter(file, true)) {
+
+            String jsonTexto = textoArchivoJson.toString();
+
+            writer.append(jsonTexto);
+
+            writer.flush();
+        }
+    }
+
+    private void guardarPorBatch(JSONArray json, JSONArray jsonCopyFieldsOrigen, JSONObject fields, JSONObject copyFields, JSONObject fieldTypes, Integer numBatch, String coleccion) throws IOException {
+
+        PropertiesService pf = new PropertiesService();
+        pf.loadProperties();
+
+        //Creo un JSONArray para guardar mis docs limpios
+        JSONArray jsonDocsOrigen = new JSONArray();
+
+        //Quito los copyFields de los docs que voy a guardar
+        for (int i = 0; i < json.length(); i++) {
+
+            JSONObject doc = json.getJSONObject(i);
+            doc.remove("_version_");
+            List<String> nombresCampos = new ArrayList<>(doc.keySet());
+            if (!jsonCopyFieldsOrigen.isEmpty()) {
+                for (int j = 0; j < nombresCampos.size(); j++) {
+                    for (int k = 0; k < jsonCopyFieldsOrigen.length(); k++) {
+                        JSONObject docCopyField = jsonCopyFieldsOrigen.getJSONObject(k);
+                        if (docCopyField.getString("dest").equals(nombresCampos.get(j))) {
+                            doc.remove(nombresCampos.get(j));
+                        }
+                    }
+                }
+            }
+
+            String documento = doc.toString();
+            logger.info("El documento " + i + " a escribir, con copyFields limpios es: " + documento);
+            jsonDocsOrigen.put(doc);
+
+        }
+
+        JSONObject docs = new JSONObject();
+        docs.put("docs", jsonDocsOrigen);
+
+        //Doy formato al nombre que tendrá el archivo.json
+        StringBuilder elementosNombre = new StringBuilder();
+
+        LocalDate date = LocalDate.now();
+        LocalTime time = LocalTime.now();
+        DateTimeFormatter formatoFecha = DateTimeFormatter.ofPattern("_yyyy-MM-dd");
+        DateTimeFormatter formatoHora = DateTimeFormatter.ofPattern("hh_mm_ss");
+        String fecha = date.format(formatoFecha);
+        String hora = time.format(formatoHora);
+
+        elementosNombre.append(coleccion).append("_").append(numBatch).append(fecha).append("T").append(hora).append("Z");
+
+        //Escribo docs, fields, fieldTypes y copyfields en un archivo.json
+        String path = pf.getPathFileModule() + "/copyCollection/" + coleccion;
+        File file = new File(path);
+
+        if (file.exists()) {
+
+            file = new File(path + "/" + elementosNombre.toString() + ".json");
+
+        } else {
+
+            if (file.mkdir()) {
+                file = new File(path + "/" + elementosNombre.toString() + ".json");
+            } else {
+                logger.info("No se pudo crear el directorio: " + file.getAbsolutePath());
+            }
+        }
+
+        file.setExecutable(true);
+        file.setReadable(true);
+        file.setWritable(true);
+
+        JSONArray textoArchivoJson = new JSONArray();
+        textoArchivoJson.put(docs);
+        textoArchivoJson.put(fieldTypes);
+        textoArchivoJson.put(fields);
+        textoArchivoJson.put(copyFields);
+
+        logger.log(Level.INFO, "El array que se escribir\u00e1 en el archivo JSON es el siguiente: {0}", textoArchivoJson.toString());
+        //System.out.println("El array que se escribirá en el archivo JSON es el siguiente: " + textoArchivoJson.toString());
+
+        logger.info("La ruta dónde se escribirà el archivo es: " + file.getAbsolutePath());
+        //System.out.println("La ruta dónde se escribirà el archivo es: " + pf.getPathFileModule() + "/copyCollection/" + elementosNombre.toString() + ".json");
+
+        try (FileWriter writer = new FileWriter(file, true)) {
 
             String jsonTexto = textoArchivoJson.toString();
 
@@ -395,6 +544,51 @@ public class ConsultaSolrSV extends HttpServlet {
 
         System.out.println("El json de la solicitud es: " + datosFormulario.toString());
         logger.info("El json de la solicitud es: " + datosFormulario.toString());
+
+        //Se realizan validaciones solicitadas desde play
+        if (datosFormulario.has("queryCollection")) {
+
+            logger.info("Ingresé al if de validación de la coleccion");
+
+            String ip = datosFormulario.getJSONObject("queryCollection").getString("ip");
+            String port = datosFormulario.getJSONObject("queryCollection").getString("port");
+            String collection = datosFormulario.getJSONObject("queryCollection").getString("collection");
+            String ids = datosFormulario.getJSONObject("queryCollection").getString("ids");
+            try {
+                String queryResponse = consultarColeccion(ip, port, collection, ids, 0);
+                logger.info("Se realiza con exito la consulta a la coleccion");
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().println(queryResponse);
+            } catch (IOException ex) {
+                logger.info("Error durante la validacion de coleccion" + ex.getMessage());
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().println("error");
+            }
+
+        } else if (datosFormulario.has("querySchema")) {
+
+            logger.info("Ingresé al if de validación del schema");
+
+            String ip = datosFormulario.getJSONObject("querySchema").getString("ip");
+            String port = datosFormulario.getJSONObject("querySchema").getString("port");
+            String collection = datosFormulario.getJSONObject("querySchema").getString("collection");
+            try {
+                String queryResponse = consultarSchema(ip, port, collection);
+                if (!queryResponse.equals("error")) {                    
+                    JSONObject jsonSchema = new JSONObject(queryResponse);                    
+                    logger.info("Se realiza con exito la consulta al schema");
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().println(jsonSchema.toString());
+                }else{
+                    //JSONObject 
+                }
+            } catch (IOException ex) {
+                logger.info("Error durante la validacion del schema: " + ex.getMessage());
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().println("error");
+            }
+
+        }
 
         //Obteniendo datos origen
         String ip = datosFormulario.getString("ip");
@@ -433,6 +627,9 @@ public class ConsultaSolrSV extends HttpServlet {
         JSONObject fields = new JSONObject();
         JSONObject copyFields = new JSONObject();
 
+        Integer numDocs = 0;
+        Integer sizeInBytes = 0;
+
         if (!operacion.equals("Indexar Archivo JSON")) {
             //Obtengo el schema Origen en formato Json
             jsonSchemaOrigen = new JSONObject(consultarSchema(ip, puerto, origen)).getJSONObject("schema");
@@ -448,6 +645,11 @@ public class ConsultaSolrSV extends HttpServlet {
             //Obtengo los copyfields Origen
             jsonCopyFieldsOrigen = jsonSchemaOrigen.getJSONArray("copyFields");
             copyFields.put("copyFields", jsonCopyFieldsOrigen);
+
+            //Obtengo status de la coleccion de origen
+            JSONObject statusCore = new JSONObject(consultarTamañoColeccion(ip, puerto, origen));
+            numDocs = statusCore.getJSONObject("status").getJSONObject(origen).getJSONObject("index").getInt("numDocs");
+            sizeInBytes = statusCore.getJSONObject("status").getJSONObject(origen).getJSONObject("index").getInt("sizeInBytes");
         }
 
         JSONObject jsonSchemaDestino = new JSONObject();
@@ -507,11 +709,6 @@ public class ConsultaSolrSV extends HttpServlet {
             String schema = "http://" + ipDestino + ":" + puertoDestino + "/solr/" + destino + "/schema";
             URL urlSchemaDestino = new URL(schema);
 
-            //Obtengo status de la coleccion de origen
-            JSONObject statusCore = new JSONObject(consultarTamañoColeccion(ip, puerto, origen));
-            Integer numDocs = statusCore.getJSONObject("status").getJSONObject(origen).getJSONObject("index").getInt("numDocs");
-            Integer sizeInBytes = statusCore.getJSONObject("status").getJSONObject(origen).getJSONObject("index").getInt("sizeInBytes");
-
             System.out.println("La operacion seleccionada por el usuario es: " + operacion);
             logger.info("La operacion seleccionada por el usuario es: " + operacion);
 
@@ -527,15 +724,16 @@ public class ConsultaSolrSV extends HttpServlet {
                     } else {
 
                         Integer promDocsBatch = 10000000 / (sizeInBytes / numDocs);
+                        logger.info("El número de documentos por Batch es: " + promDocsBatch);
 
-                        for (int i = 0; i <= promDocsBatch; i+= promDocsBatch) {
-                            
+                        for (int i = 0; i <= promDocsBatch; i += promDocsBatch) {
+
                             //Obtengo el resultado de la consulta en formato Json
-                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i+1, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
+                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i + 1, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
                             indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
-                        
+
                         }
-                        
+
                     }
 
                     response.setContentType("application/json;charset=UTF-8");
@@ -544,24 +742,26 @@ public class ConsultaSolrSV extends HttpServlet {
                     break;
 
                 case "Guardar":
-                    
+
                     if (((ids.equals(" ") || ids.isEmpty()) && sizeInBytes <= 20000000) || !(ids.equals(" ") || ids.isEmpty())) {
 
                         jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids, numDocs)).getJSONObject("response").getJSONArray("docs");
-                        guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
+                        guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids), origen);
 
                     } else {
 
                         Integer promDocsBatch = 10000000 / (sizeInBytes / numDocs);
+                        logger.info("El número de documentos por Batch es: " + promDocsBatch);
+                        int numBatch = 1;
 
-                        for (int i = 0; i <= promDocsBatch; i+= promDocsBatch) {
-                            
+                        for (int i = 0; i <= promDocsBatch; i += promDocsBatch) {
+
                             //Obtengo el resultado de la consulta en formato Json
-                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i+1, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
-                            guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
-                        
+                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
+                            guardarPorBatch(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, numBatch++, origen);
+
                         }
-                        
+
                     }
 
                     response.setContentType("application/json;charset=UTF-8");
@@ -569,40 +769,39 @@ public class ConsultaSolrSV extends HttpServlet {
                     break;
 
                 case "Guardar e Indexar":
-                    
+
                     if (((ids.equals(" ") || ids.isEmpty()) && sizeInBytes <= 20000000) || !(ids.equals(" ") || ids.isEmpty())) {
 
                         jsonDocsOrigen = new JSONObject(consultarColeccion(ip, puerto, origen, ids, numDocs)).getJSONObject("response").getJSONArray("docs");
-                        guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
+                        guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids), origen);
                         indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
 
                     } else {
 
                         Integer promDocsBatch = 10000000 / (sizeInBytes / numDocs);
+                        logger.info("El número de documentos por Batch es: " + promDocsBatch);
+                        int numBatch = 1;
 
-                        for (int i = 0; i <= promDocsBatch; i+= promDocsBatch) {
-                            
+                        for (int i = 0; i <= promDocsBatch; i += promDocsBatch) {
+
                             //Obtengo el resultado de la consulta en formato Json
-                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i+1, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
-                            guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
+                            jsonDocsOrigen = new JSONObject(consultarColeccionPorBatch(ip, puerto, origen, i + 1, promDocsBatch)).getJSONObject("response").getJSONArray("docs");
+                            guardarPorBatch(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, numBatch++, origen);
                             indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
-                        
-                        }
-                        
-                    }
 
-                    guardar(jsonDocsOrigen, jsonCopyFieldsOrigen, fields, copyFields, fieldTypes, idsArray(ids));
-                    indexar(urlDestino, urlSchemaDestino, jsonDocsOrigen, jsonFieldTypesOrigen, jsonFieldTypesDestino, jsonFieldsOrigen, jsonFieldsDestino, jsonCopyFieldsOrigen, jsonCopyFieldsDestino);
+                        }
+
+                    }
 
                     response.setContentType("application/json;charset=UTF-8");
                     out.println("La consulta se ha guardado e indexado con exito");
-                    out.println(jsonDocsOrigen.toString());
+                    //out.println(jsonDocsOrigen.toString());
                     break;
 
                 case "Indexar Archivo JSON":
 
-                    System.out.println("El array del json leido es: " + textoJsonLeido);
-                    logger.info("El array del json leido es: ");
+                    //System.out.println("El array del json leido es: " + textoJsonLeido);
+                    logger.info("El array del json leido es: " + textoJsonLeido);
 
                     JSONArray arrayJsonLeído = new JSONArray(textoJsonLeido);
 
@@ -630,10 +829,10 @@ public class ConsultaSolrSV extends HttpServlet {
                     indexar(urlDestino, urlSchemaDestino, docsJsonLeido, fieldTypesJsonLeido, jsonFieldTypesDestino, fieldsJsonLeido, jsonFieldsDestino, copyFieldsJsonLeido, jsonCopyFieldsDestino);
 
                     response.setContentType("application/json;charset=UTF-8");
-                    out.println("El archivo.json se ha indexado con exito");
-                    out.println(docsJsonLeido.toString());
+                    out.println("El archivo json se ha indexado con exito");
+                    //out.println(docsJsonLeido.toString());
                     break;
-                    
+
             }
 
         } catch (IOException e) {

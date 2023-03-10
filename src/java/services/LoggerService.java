@@ -20,6 +20,7 @@ public class LoggerService {
         
         Logger logger  = Logger.getLogger(className);
         String pathLog = "/opt/data/IFindIt/admin_dashboards/admin_serviceDash/logs/api_servlet.log";
+        
         try {
 
             FileHandler fhandler = new FileHandler(pathLog, true);
