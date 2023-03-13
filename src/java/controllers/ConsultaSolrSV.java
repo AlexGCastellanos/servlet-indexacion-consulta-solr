@@ -143,7 +143,7 @@ public class ConsultaSolrSV extends HttpServlet {
 
         } else {
 
-            BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
+            BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getErrorStream()));
 
             String linea;
 
@@ -151,7 +151,7 @@ public class ConsultaSolrSV extends HttpServlet {
                 resultado.append(linea);
             }
 
-            logger.info("La respuesta de la consulta a schema es: " + resultado.toString());
+            logger.info("La respuesta error de la consulta a schema es: " + resultado.toString());
             return "error";
 
         }
@@ -244,20 +244,38 @@ public class ConsultaSolrSV extends HttpServlet {
         connOrigen.setRequestMethod("GET");
         connOrigen.setConnectTimeout(3000);
 
-        BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
-
         StringBuilder resultado = new StringBuilder();
-        String linea;
+        
+        int responseCode = connOrigen.getResponseCode();
+        
+        if (responseCode == 200) {
 
-        while ((linea = rd.readLine()) != null) {
-            resultado.append(linea);
+            BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
+
+            String linea;
+
+            while ((linea = rd.readLine()) != null) {
+                resultado.append(linea);
+            }
+
+            logger.info("La respuesta de la consulta a schema es: " + resultado.toString());
+            connOrigen.disconnect();
+            return resultado.toString();
+
+        } else {
+
+            BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
+
+            String linea;
+
+            while ((linea = rd.readLine()) != null) {
+                resultado.append(linea);
+            }
+
+            logger.info("La respuesta de la consulta a schema es: " + resultado.toString());
+            return "error";
+
         }
-
-        logger.info("La respuesta de la consulta a coleccion es: " + resultado.toString());
-
-        connOrigen.disconnect();
-
-        return resultado.toString();
 
     }
 
@@ -554,7 +572,7 @@ public class ConsultaSolrSV extends HttpServlet {
             String port = datosFormulario.getJSONObject("queryCollection").getString("port");
             String collection = datosFormulario.getJSONObject("queryCollection").getString("collection");
             String ids = datosFormulario.getJSONObject("queryCollection").getString("ids");
-            try {
+            try {                
                 String queryResponse = consultarColeccion(ip, port, collection, ids, 0);
                 logger.info("Se realiza con exito la consulta a la coleccion");
                 response.setContentType("application/json;charset=UTF-8");
@@ -572,20 +590,30 @@ public class ConsultaSolrSV extends HttpServlet {
             String ip = datosFormulario.getJSONObject("querySchema").getString("ip");
             String port = datosFormulario.getJSONObject("querySchema").getString("port");
             String collection = datosFormulario.getJSONObject("querySchema").getString("collection");
+            
             try {
                 String queryResponse = consultarSchema(ip, port, collection);
-                if (!queryResponse.equals("error")) {                    
-                    JSONObject jsonSchema = new JSONObject(queryResponse);                    
+                PrintWriter out = response.getWriter();
+                if (!queryResponse.equals("error")) { 
+                    
+                    JSONObject responseHeader = new JSONObject(queryResponse).getJSONObject("responseHeader");
+                    JSONObject resp = new JSONObject();
+                    resp.put("responseHeader", responseHeader);
                     logger.info("Se realiza con exito la consulta al schema");
+                    logger.info("El responseHeader del schema es: " + resp.toString());
                     response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().println(jsonSchema.toString());
+                    out.println(resp.toString());
+                    
                 }else{
-                    //JSONObject 
+                    response.setContentType("application/json;charset=UTF-8");
+                    out.println("error");
                 }
+                
             } catch (IOException ex) {
                 logger.info("Error durante la validacion del schema: " + ex.getMessage());
+                PrintWriter out = response.getWriter();
                 response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().println("error");
+                out.println("error");
             }
 
         }
