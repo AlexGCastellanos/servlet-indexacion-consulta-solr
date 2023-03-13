@@ -108,26 +108,24 @@ public class ConsultaSolrSV extends HttpServlet {
 
     }
 
-    private String consultarSchema(String ip, String puerto, String coleccion) throws IOException {
+    private String consultarSchema(String ip, String puerto, String coleccion) {
 
         logger.info("Ingresé al método consultarSchema: ");
+        try {
+            //Obteniendo url para consultar schema Origen
+            String schema = "http://" + ip + ":" + puerto + "/solr/" + coleccion + "/schema";
+            URL urlSchema = new URL(schema);
 
-        //Obteniendo url para consultar schema Origen
-        String schema = "http://" + ip + ":" + puerto + "/solr/" + coleccion + "/schema";
-        URL urlSchema = new URL(schema);
+            logger.info("URL de consulta a schema quedó como: " + schema);
 
-        logger.info("URL de consulta a schema quedó como: " + schema);
+            HttpURLConnection connOrigen = (HttpURLConnection) urlSchema.openConnection();
+            connOrigen.setRequestMethod("GET");
+            connOrigen.setConnectTimeout(3000);
 
-        HttpURLConnection connOrigen = (HttpURLConnection) urlSchema.openConnection();
-        connOrigen.setRequestMethod("GET");
-        connOrigen.setConnectTimeout(3000);
+            int responseCode = connOrigen.getResponseCode();
+            logger.info("El responseCode de la consulta a schema es: " + responseCode);
 
-        int responseCode = connOrigen.getResponseCode();
-        logger.info("El responseCode de la consulta a schema es: " + responseCode);
-
-        StringBuilder resultado = new StringBuilder();
-
-        if (responseCode == 200) {
+            StringBuilder resultado = new StringBuilder();
 
             BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
 
@@ -141,17 +139,9 @@ public class ConsultaSolrSV extends HttpServlet {
             connOrigen.disconnect();
             return resultado.toString();
 
-        } else {
+        } catch (IOException ex) {
 
-            BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getErrorStream()));
-
-            String linea;
-
-            while ((linea = rd.readLine()) != null) {
-                resultado.append(linea);
-            }
-
-            logger.info("La respuesta error de la consulta a schema es: " + resultado.toString());
+            logger.info("La respuesta error de la consulta a schema es: " + ex.getMessage());
             return "error";
 
         }
@@ -210,7 +200,7 @@ public class ConsultaSolrSV extends HttpServlet {
         return resultado.toString();
     }
 
-    private String consultarColeccion(String ip, String puerto, String origen, String ids, Integer numDocs) throws IOException {
+    private String consultarColeccion(String ip, String puerto, String origen, String ids, Integer numDocs) {
 
         logger.info("Ingresé al método consultarColeccion: ");
 
@@ -238,17 +228,19 @@ public class ConsultaSolrSV extends HttpServlet {
 
         logger.info("Los parametros id quedaron como: " + queryParam.toString());
         System.out.println("Los parametros id quedaron como: " + queryParam.toString());
-        URL solrOrigen = new URL(urlSolr + "fq=" + queryParam.toString() + "&q=*:*&wt=json");
 
-        HttpURLConnection connOrigen = (HttpURLConnection) solrOrigen.openConnection();
-        connOrigen.setRequestMethod("GET");
-        connOrigen.setConnectTimeout(3000);
+        try {
 
-        StringBuilder resultado = new StringBuilder();
-        
-        int responseCode = connOrigen.getResponseCode();
-        
-        if (responseCode == 200) {
+            URL solrOrigen = new URL(urlSolr + "fq=" + queryParam.toString() + "&q=*:*&wt=json");
+
+            HttpURLConnection connOrigen = (HttpURLConnection) solrOrigen.openConnection();
+            connOrigen.setRequestMethod("GET");
+            connOrigen.setConnectTimeout(3000);
+
+            StringBuilder resultado = new StringBuilder();
+
+            int responseCode = connOrigen.getResponseCode();
+            logger.info("El response code de la consulta a la coleccion es: " + responseCode);
 
             BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
 
@@ -258,23 +250,13 @@ public class ConsultaSolrSV extends HttpServlet {
                 resultado.append(linea);
             }
 
-            logger.info("La respuesta de la consulta a schema es: " + resultado.toString());
+            logger.info("La respuesta de la consulta a coleccion es: " + resultado.toString());
             connOrigen.disconnect();
             return resultado.toString();
 
-        } else {
-
-            BufferedReader rd = new BufferedReader(new InputStreamReader(connOrigen.getInputStream()));
-
-            String linea;
-
-            while ((linea = rd.readLine()) != null) {
-                resultado.append(linea);
-            }
-
-            logger.info("La respuesta de la consulta a schema es: " + resultado.toString());
+        } catch (IOException ex) {
+            logger.info("La respuesta error de la consulta a coleccion es: " + ex.getMessage());
             return "error";
-
         }
 
     }
@@ -398,7 +380,7 @@ public class ConsultaSolrSV extends HttpServlet {
         String hora = time.format(formatoHora);
 
         if (idsArray == null) {
-            elementosNombre.append(coleccion).append(fecha).append("T").append(hora).append("Z");
+            elementosNombre.append("coleccion_completa").append(fecha).append("T").append(hora).append("Z");
         } else {
 
             for (int i = 0; i < idsArray.length; i++) {
@@ -500,7 +482,7 @@ public class ConsultaSolrSV extends HttpServlet {
         String fecha = date.format(formatoFecha);
         String hora = time.format(formatoHora);
 
-        elementosNombre.append(coleccion).append("_").append(numBatch).append(fecha).append("T").append(hora).append("Z");
+        elementosNombre.append("coleccion_completa").append("_").append(numBatch).append(fecha).append("T").append(hora).append("Z");
 
         //Escribo docs, fields, fieldTypes y copyfields en un archivo.json
         String path = pf.getPathFileModule() + "/copyCollection/" + coleccion;
@@ -572,15 +554,29 @@ public class ConsultaSolrSV extends HttpServlet {
             String port = datosFormulario.getJSONObject("queryCollection").getString("port");
             String collection = datosFormulario.getJSONObject("queryCollection").getString("collection");
             String ids = datosFormulario.getJSONObject("queryCollection").getString("ids");
-            try {                
-                String queryResponse = consultarColeccion(ip, port, collection, ids, 0);
-                logger.info("Se realiza con exito la consulta a la coleccion");
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().println(queryResponse);
+
+            String queryResponse = consultarColeccion(ip, port, collection, ids, 0);
+            logger.info("El valor de queryResponse es: " + queryResponse.toString());
+
+            try (PrintWriter out = response.getWriter()) {
+
+                if (!queryResponse.equals("error")) {
+
+                    JSONObject jsonQuery = new JSONObject(queryResponse);
+                    logger.info("Se realiza con exito la consulta a la coleccion");
+                    response.setContentType("application/json;charset=UTF-8");
+                    out.println(jsonQuery.toString());
+
+                } else {
+
+                    logger.info("Entré al else de error del queryResponse");
+                    response.setContentType("application/json;charset=UTF-8");
+                    out.println(queryResponse.toString());
+
+                }
+
             } catch (IOException ex) {
-                logger.info("Error durante la validacion de coleccion" + ex.getMessage());
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().println("error");
+                logger.info("Error al escribir respuesta de la consulta a coleccion: " + ex.getMessage());
             }
 
         } else if (datosFormulario.has("querySchema")) {
@@ -590,12 +586,14 @@ public class ConsultaSolrSV extends HttpServlet {
             String ip = datosFormulario.getJSONObject("querySchema").getString("ip");
             String port = datosFormulario.getJSONObject("querySchema").getString("port");
             String collection = datosFormulario.getJSONObject("querySchema").getString("collection");
-            
-            try {
-                String queryResponse = consultarSchema(ip, port, collection);
-                PrintWriter out = response.getWriter();
-                if (!queryResponse.equals("error")) { 
-                    
+
+            String queryResponse = consultarSchema(ip, port, collection);
+            logger.info("El valor de queryResponse es: " + queryResponse.toString());
+
+            try (PrintWriter out = response.getWriter()) {
+
+                if (!queryResponse.equals("error")) {
+                    logger.info("Entré al if del queryResponse");
                     JSONObject responseHeader = new JSONObject(queryResponse).getJSONObject("responseHeader");
                     JSONObject resp = new JSONObject();
                     resp.put("responseHeader", responseHeader);
@@ -603,17 +601,15 @@ public class ConsultaSolrSV extends HttpServlet {
                     logger.info("El responseHeader del schema es: " + resp.toString());
                     response.setContentType("application/json;charset=UTF-8");
                     out.println(resp.toString());
-                    
-                }else{
+
+                } else {
+                    logger.info("Entré al else de error del queryResponse");
                     response.setContentType("application/json;charset=UTF-8");
-                    out.println("error");
+                    out.println(queryResponse.toString());
                 }
-                
+
             } catch (IOException ex) {
-                logger.info("Error durante la validacion del schema: " + ex.getMessage());
-                PrintWriter out = response.getWriter();
-                response.setContentType("application/json;charset=UTF-8");
-                out.println("error");
+                logger.info("Error al escribir respuesta de la consulta a schema: " + ex.getMessage());
             }
 
         }
